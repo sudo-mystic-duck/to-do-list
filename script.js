@@ -1,16 +1,150 @@
-// localStorage Fallback für GitHub Pages
-let storageAvailable = false;
-let taskStorage = [];
+// Persistente Speicher-Lösung für GitHub Pages
+let storageMethod = 'none';
 
-// Prüfen ob localStorage verfügbar ist
-try {
-    localStorage.setItem('test', 'test');
-    localStorage.removeItem('test');
-    storageAvailable = true;
-} catch (e) {
-    console.warn('localStorage nicht verfügbar, verwende temporären Speicher');
-    storageAvailable = false;
+// Verschiedene Speichermethoden testen
+function initStorage() {
+    // 1. localStorage testen
+    try {
+        localStorage.setItem('test', 'test');
+        localStorage.removeItem('test');
+        storageMethod = 'localStorage';
+        console.log('✅ localStorage verfügbar');
+        return;
+    } catch (e) {
+        console.warn('⚠️ localStorage nicht verfügbar');
+    }
+    
+    // 2. sessionStorage testen
+    try {
+        sessionStorage.setItem('test', 'test');
+        sessionStorage.removeItem('test');
+        storageMethod = 'sessionStorage';
+        console.log('✅ sessionStorage verfügbar (Session-basiert)');
+        return;
+    } catch (e) {
+        console.warn('⚠️ sessionStorage nicht verfügbar');
+    }
+    
+    // 3. Cookie-Fallback
+    if (navigator.cookieEnabled) {
+        storageMethod = 'cookies';
+        console.log('✅ Cookies verfügbar (persistente Speicherung)');
+        return;
+    }
+    
+    // 4. Letzter Fallback: URL-Parameter (sehr begrenzt)
+    storageMethod = 'url';
+    console.log('⚠️ Verwende URL-Parameter (begrenzte Funktionalität)');
 }
+
+// Cookie-Hilfsfunktionen
+function setCookie(name, value, days = 365) {
+    const expires = new Date();
+    expires.setTime(expires.getTime() + (days * 24 * 60 * 60 * 1000));
+    document.cookie = `${name}=${encodeURIComponent(value)};expires=${expires.toUTCString()};path=/;SameSite=Lax`;
+}
+
+function getCookie(name) {
+    const nameEQ = name + "=";
+    const ca = document.cookie.split(';');
+    for (let i = 0; i < ca.length; i++) {
+        let c = ca[i];
+        while (c.charAt(0) === ' ') c = c.substring(1, c.length);
+        if (c.indexOf(nameEQ) === 0) {
+            return decodeURIComponent(c.substring(nameEQ.length, c.length));
+        }
+    }
+    return null;
+}
+
+function deleteCookie(name) {
+    document.cookie = `${name}=;expires=Thu, 01 Jan 1970 00:00:00 UTC;path=/;`;
+}
+
+// Universelle Speicher-Funktionen
+function setStorageItem(key, value) {
+    const jsonValue = JSON.stringify(value);
+    
+    switch (storageMethod) {
+        case 'localStorage':
+            try {
+                localStorage.setItem(key, jsonValue);
+                return true;
+            } catch (e) {
+                console.warn('localStorage Fehler, versuche Cookie-Fallback');
+                setCookie(key, jsonValue);
+                return true;
+            }
+            
+        case 'sessionStorage':
+            try {
+                sessionStorage.setItem(key, jsonValue);
+                return true;
+            } catch (e) {
+                setCookie(key, jsonValue);
+                return true;
+            }
+            
+        case 'cookies':
+            setCookie(key, jsonValue);
+            return true;
+            
+        case 'url':
+            // Sehr begrenzt - nur für Demo
+            window.location.hash = encodeURIComponent(jsonValue);
+            return true;
+            
+        default:
+            return false;
+    }
+}
+
+function getStorageItem(key) {
+    let value = null;
+    
+    switch (storageMethod) {
+        case 'localStorage':
+            try {
+                value = localStorage.getItem(key);
+            } catch (e) {
+                value = getCookie(key);
+            }
+            break;
+            
+        case 'sessionStorage':
+            try {
+                value = sessionStorage.getItem(key);
+            } catch (e) {
+                value = getCookie(key);
+            }
+            break;
+            
+        case 'cookies':
+            value = getCookie(key);
+            break;
+            
+        case 'url':
+            try {
+                value = decodeURIComponent(window.location.hash.substring(1));
+                if (!value) value = null;
+            } catch (e) {
+                value = null;
+            }
+            break;
+    }
+    
+    if (value) {
+        try {
+            return JSON.parse(value);
+        } catch (e) {
+            return null;
+        }
+    }
+    return null;
+}
+
+// Storage initialisieren
+initStorage();
 
 // Beim Laden der Seite: Gespeicherte Aufgaben laden
 window.onload = function() {
@@ -152,19 +286,11 @@ function setupModalEventListeners() {
     });
 }
 
-// Aufgaben aus localStorage oder Fallback laden und anzeigen
+// Aufgaben aus dem universellen Speichersystem laden
 function loadTasks() {
-    let tasks = [];
+    const tasks = getStorageItem('todoTasks') || [];
     
-    if (storageAvailable) {
-        const savedTasks = localStorage.getItem('todoTasks');
-        if (savedTasks) {
-            tasks = JSON.parse(savedTasks);
-        }
-    } else {
-        // Fallback: Verwende temporären Speicher
-        tasks = taskStorage;
-    }
+    console.log(`📂 ${tasks.length} Aufgaben geladen mit ${storageMethod}`);
     
     tasks.forEach(task => {
         createTaskElement(task.text, task.checked);
@@ -185,7 +311,7 @@ function createTaskElement(taskText, isChecked = false) {
     todoList.appendChild(listItem);
 }
 
-// Alle aktuellen Aufgaben speichern (localStorage oder Fallback)
+// Alle aktuellen Aufgaben im universellen Speichersystem speichern
 function saveTasks() {
     const tasks = [];
     const taskItems = document.querySelectorAll('#todoList li');
@@ -200,16 +326,12 @@ function saveTasks() {
         });
     });
     
-    if (storageAvailable) {
-        try {
-            localStorage.setItem('todoTasks', JSON.stringify(tasks));
-        } catch (e) {
-            console.warn('Fehler beim Speichern in localStorage:', e);
-            taskStorage = tasks; // Fallback verwenden
-        }
+    const success = setStorageItem('todoTasks', tasks);
+    
+    if (success) {
+        console.log(`💾 ${tasks.length} Aufgaben gespeichert mit ${storageMethod}`);
     } else {
-        // Fallback: Verwende temporären Speicher
-        taskStorage = tasks;
+        console.error('❌ Fehler beim Speichern der Aufgaben');
     }
 }
 
