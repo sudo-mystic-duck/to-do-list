@@ -364,13 +364,12 @@ function addTask() {
 }
 
 async function deleteAllTask() {
-    const deleteAll = await customPrompt(
-        "Geben Sie 'DELETE ALL' ein, um alle Aufgaben zu löschen:",
-        "Alle Aufgaben löschen",
-        "DELETE ALL"
+    const deleteAll = await customConfirm(
+        "Möchten Sie wirklich alle Aufgaben löschen?",
+        "Alle Aufgaben löschen"
     );
     
-    if (deleteAll === "DELETE ALL") {
+    if (deleteAll) {
         todoList.innerHTML = "";
         saveTasks(); // Nach dem Löschen speichern
         await customAlert("Alle Aufgaben wurden gelöscht!", "Erfolgreich");
