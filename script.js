@@ -41,19 +41,36 @@ function initStorage() {
 function setCookie(name, value, days = 365) {
     const expires = new Date();
     expires.setTime(expires.getTime() + (days * 24 * 60 * 60 * 1000));
-    document.cookie = `${name}=${encodeURIComponent(value)};expires=${expires.toUTCString()};path=/;SameSite=Lax`;
+    const cookieString = `${name}=${encodeURIComponent(value)};expires=${expires.toUTCString()};path=/;SameSite=Lax`;
+    document.cookie = cookieString;
+    console.log(`🍪 Cookie gesetzt: ${name} (${value.length} Zeichen)`);
+    
+    // Prüfen ob Cookie wirklich gesetzt wurde
+    const testValue = getCookie(name);
+    if (testValue) {
+        console.log(`✅ Cookie erfolgreich gesetzt und lesbar`);
+    } else {
+        console.error(`❌ Cookie konnte nicht gesetzt werden!`);
+    }
 }
 
 function getCookie(name) {
     const nameEQ = name + "=";
     const ca = document.cookie.split(';');
+    
+    console.log(`🔍 Suche Cookie: ${name}`);
+    console.log(`📜 Alle Cookies: ${document.cookie}`);
+    
     for (let i = 0; i < ca.length; i++) {
         let c = ca[i];
         while (c.charAt(0) === ' ') c = c.substring(1, c.length);
         if (c.indexOf(nameEQ) === 0) {
-            return decodeURIComponent(c.substring(nameEQ.length, c.length));
+            const value = decodeURIComponent(c.substring(nameEQ.length, c.length));
+            console.log(`✅ Cookie gefunden: ${name} = ${value.substring(0, 50)}...`);
+            return value;
         }
     }
+    console.log(`❌ Cookie nicht gefunden: ${name}`);
     return null;
 }
 
