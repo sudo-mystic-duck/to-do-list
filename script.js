@@ -1,3 +1,17 @@
+// localStorage Fallback für GitHub Pages
+let storageAvailable = false;
+let taskStorage = [];
+
+// Prüfen ob localStorage verfügbar ist
+try {
+    localStorage.setItem('test', 'test');
+    localStorage.removeItem('test');
+    storageAvailable = true;
+} catch (e) {
+    console.warn('localStorage nicht verfügbar, verwende temporären Speicher');
+    storageAvailable = false;
+}
+
 // Beim Laden der Seite: Gespeicherte Aufgaben laden
 window.onload = function() {
     loadTasks();
@@ -138,17 +152,23 @@ function setupModalEventListeners() {
     });
 }
 
-// Aufgaben aus localStorage laden und anzeigen
+// Aufgaben aus localStorage oder Fallback laden und anzeigen
 function loadTasks() {
-    const savedTasks = localStorage.getItem('todoTasks');
+    let tasks = [];
     
-    if (savedTasks) {
-        const tasks = JSON.parse(savedTasks); // JSON-Text → JavaScript Array
-        
-        tasks.forEach(task => {
-            createTaskElement(task.text, task.checked);
-        });
+    if (storageAvailable) {
+        const savedTasks = localStorage.getItem('todoTasks');
+        if (savedTasks) {
+            tasks = JSON.parse(savedTasks);
+        }
+    } else {
+        // Fallback: Verwende temporären Speicher
+        tasks = taskStorage;
     }
+    
+    tasks.forEach(task => {
+        createTaskElement(task.text, task.checked);
+    });
 }
 
 // Hilfsfunktion: Ein Aufgaben-Element erstellen
@@ -165,7 +185,7 @@ function createTaskElement(taskText, isChecked = false) {
     todoList.appendChild(listItem);
 }
 
-// Alle aktuellen Aufgaben in localStorage speichern
+// Alle aktuellen Aufgaben speichern (localStorage oder Fallback)
 function saveTasks() {
     const tasks = [];
     const taskItems = document.querySelectorAll('#todoList li');
@@ -180,7 +200,17 @@ function saveTasks() {
         });
     });
     
-    localStorage.setItem('todoTasks', JSON.stringify(tasks)); // JavaScript Array → JSON-Text
+    if (storageAvailable) {
+        try {
+            localStorage.setItem('todoTasks', JSON.stringify(tasks));
+        } catch (e) {
+            console.warn('Fehler beim Speichern in localStorage:', e);
+            taskStorage = tasks; // Fallback verwenden
+        }
+    } else {
+        // Fallback: Verwende temporären Speicher
+        taskStorage = tasks;
+    }
 }
 
 function addTask() {
